@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: powertemp-postgres
+    environment:
+      POSTGRES_DB: powertemp
+      POSTGRES_USER: powertemp
+      POSTGRES_PASSWORD: powertemp
+    ports:
+      - "5432:5432"
+    volumes:
+      - powertemp_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powertemp -d powertemp"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  sensor-simulator:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: sensor-simulator
+    container_name: powertemp-sensor-simulator
+    environment:
+      HTTP_ADDR: ":8090"
+    ports:
+      - "8090:8090"
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: api-gateway
+    container_name: powertemp-api-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      sensor-simulator:
+        condition: service_started
+    environment:
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: "postgres://powertemp:powertemp@postgres:5432/powertemp?sslmode=disable"
+      SIMULATOR_URL: "http://sensor-simulator:8090"
+      EXPORT_DIR: "/app/exports"
+    volumes:
+      - ./exports:/app/exports
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: powertemp-frontend
+    depends_on:
+      - api-gateway
+    ports:
+      - "3000:80"
+
+volumes:
+  powertemp_postgres:

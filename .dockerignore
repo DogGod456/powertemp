@@ -1,0 +1,7 @@
+.git
+frontend/node_modules
+backend/tmp
+backend/bin
+exports/*
+!exports/.gitkeep
+*.zip
